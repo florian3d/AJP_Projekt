@@ -1,6 +1,4 @@
-import pika, time, flask, sqlite3, multiprocessing # , threading
-from flask_cors import CORS
-from requests import request
+import pika, flask, sqlite3, multiprocessing
 
 # ---------------------------------------------------------------------------------------------------------------------- #
 
@@ -25,10 +23,9 @@ class Dana:
     def from_string(self, s):
         self.computer, self.domain, self.ip, self.mac, self.cpu, self.ram, self.freq, self.gpu, self.freq_val, self.created = s.strip().split(';')
 
-    def from_host(self, computer, domain, ip, mac):
+    def from_host(self, computer, domain, mac):
         self.computer = computer
         self.domain = domain
-        self.ip = ip
         self.mac = mac
 
 # ---------------------------------------------------------------------------------------------------------------------- #
@@ -42,7 +39,7 @@ def start_mqtt():
         computer, domain, ip, mac, cpu, ram, freq, gpu, freq_val, created = body.decode().split(';') # computer, domain, ip, mac, cpu, ram, freq, gpu, freq_val, timestamp = body.decode().split(';')
         mac = 'mac'.upper()
         connection = sqlite3.connect('projekt.sqlite')
-        hid = connection.cursor().execute('INSERT INTO hosts (computer, domain, ip, mac) VALUES (:computer, :domain, :ip, :mac)', {'computer': computer, 'domain': domain, 'ip': ip, 'mac': mac})
+        hid = connection.cursor().execute('INSERT INTO hosts (computer, domain, mac) VALUES (:computer, :domain, :mac)', {'computer': computer, 'domain': domain, 'mac': mac})
         connection.cursor().execute('INSERT INTO dane (created, computer, domain, ip, mac, cpu, ram, freq, gpu, freq_val) VALUES (:created, :computer, :domain, :ip, :mac, :cpu, :ram, :freq, :gpu, :freq_val)', {'computer': computer, 'domain': domain, 'ip': ip, 'mac': mac, 'cpu': cpu, 'ram': ram, 'freq': freq, 'gpu': gpu, 'freq_val': freq_val, 'created': created})
         connection.commit()
 
@@ -60,7 +57,6 @@ def start_mqtt():
 # ---------------------------------------------------------------------------------------------------------------------- #
 
 app = flask.Flask(__name__)
-CORS(app, resources={r'/*': {'origins': '*'}})
 
 @app.route('/test', methods=['GET',])
 def test():
@@ -97,10 +93,10 @@ def get_computers():
     
     connection = sqlite3.connect('projekt.sqlite')
     cursor = connection.cursor()
-    _dane = cursor.execute(f"SELECT computer, domain, ip, mac FROM hosts").fetchall()
+    _dane = cursor.execute(f"SELECT computer, domain, mac FROM hosts").fetchall()
     for d in _dane:
         dana = Dana()
-        dana.from_host(d[0], d[1], d[2], d[3])
+        dana.from_host(d[0], d[1], d[2])
         dane.append(dana.to_dict())
     success = True
     response = {'success': success, 'errors': [], 'content': {'length': len(dane), 'items': dane}}
